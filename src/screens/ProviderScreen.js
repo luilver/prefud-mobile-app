@@ -8,8 +8,10 @@ import { ENDPOINTS } from '../api/endpoints';
 import { ProductCard } from '../components/ProductCard';
 import { Loading } from '../components/Loading';
 import { EmptyState } from '../components/EmptyState';
+import { useAuth } from '../hooks/useAuth';
 
 export default function ProviderScreen({ navigation }) {
+  const { logout } = useAuth();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -40,6 +42,9 @@ export default function ProviderScreen({ navigation }) {
       <View style={styles.header}>
         <Text style={styles.title}>Provider Dashboard</Text>
         <Text style={styles.subtitle}>Manage products and inventory</Text>
+        <TouchableOpacity style={styles.signout} onPress={logout}>
+          <Text style={styles.signoutText}>Sign out</Text>
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity style={styles.refreshBtn} onPress={fetchProducts}>
@@ -95,11 +100,24 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginHorizontal: 16,
     marginBottom: 16,
-  },
-  refreshText: {
+  },  refreshText: {
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 14,
+  },
+  signout: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    marginLeft: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#EF4444',
+    borderRadius: 16,
+  },
+  signoutText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 13,
   },
   listContent: {
     paddingHorizontal: 16,

@@ -7,8 +7,10 @@ import { api } from '../api/api';
 import { ENDPOINTS } from '../api/endpoints';
 import { Loading } from '../components/Loading';
 import { EmptyState } from '../components/EmptyState';
+import { useAuth } from '../hooks/useAuth';
 
 export default function SupervisorScreen({ navigation }) {
+  const { logout } = useAuth();
   const [markets, setMarkets] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +42,9 @@ export default function SupervisorScreen({ navigation }) {
       <View style={styles.header}>
         <Text style={styles.title}>Supervisor Dashboard</Text>
         <Text style={styles.subtitle}>Overview of markets and orders</Text>
+        <TouchableOpacity style={styles.signout} onPress={logout}>
+          <Text style={styles.signoutText}>Sign out</Text>
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity style={styles.refreshBtn} onPress={fetchDashboard}>
@@ -133,6 +138,20 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 14,
+  },
+  signout: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    marginLeft: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#EF4444',
+    borderRadius: 16,
+  },
+  signoutText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 13,
   },
   sections: {
     flex: 1,

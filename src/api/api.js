@@ -1,13 +1,22 @@
-import { Platform } from 'react-native';
+import { getAuthHeader, clearAuth } from './auth';
 
 const API_BASE_URL = 'http://10.51.26.21:3002';
 
 const API_TIMEOUT = 15000;
 
+export class AuthError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'AuthError';
+  }
+}
+
 async function request(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
+  const authHeaders = await getAuthHeader();
   const headers = {
     'Content-Type': 'application/json',
+    ...authHeaders,
     ...options.headers,
   };
 
@@ -22,6 +31,11 @@ async function request(endpoint, options = {}) {
     });
 
     clearTimeout(timeoutId);
+
+    if (response.status === 401) {
+      await clearAuth();
+      throw new AuthError('Unauthorized. Please log in again.');
+    }
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => '');

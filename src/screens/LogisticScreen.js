@@ -7,8 +7,10 @@ import { api } from '../api/api';
 import { ENDPOINTS } from '../api/endpoints';
 import { Loading } from '../components/Loading';
 import { EmptyState } from '../components/EmptyState';
+import { useAuth } from '../hooks/useAuth';
 
 export default function LogisticScreen({ navigation }) {
+  const { logout } = useAuth();
   const [vendors, setVendors] = useState([]);
   const [inventories, setInventories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +42,9 @@ export default function LogisticScreen({ navigation }) {
       <View style={styles.header}>
         <Text style={styles.title}>Logistic Dashboard</Text>
         <Text style={styles.subtitle}>Manage vendors and inventory stock</Text>
+        <TouchableOpacity style={styles.signout} onPress={logout}>
+          <Text style={styles.signoutText}>Sign out</Text>
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity style={styles.refreshBtn} onPress={fetchData}>
@@ -134,6 +139,20 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 14,
+  },
+  signout: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    marginLeft: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#EF4444',
+    borderRadius: 16,
+  },
+  signoutText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 13,
   },
   sections: {
     flex: 1,

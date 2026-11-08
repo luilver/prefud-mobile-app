@@ -29,6 +29,10 @@ export const ENDPOINTS = {
     invoiceById: (id) => `/api/v1/invoices/${id}`,
     payOrder: (id) => `/api/v1/invoices/${id}/pay`,
   },
+  security: {
+    login: '/security/login',
+    refresh: '/security/refresh-token',
+  },
   fulfillment: {
     deliverers: '/api/v1/deliverers',
     delivererById: (id) => `/api/v1/deliverers/${id}`,
