@@ -4,22 +4,48 @@
     "slug": "pantry-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/brand/prefud-isotype-default.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.luilver-go.pantry-app"
+      "bundleIdentifier": "com.luilver-go.pantry-app",
+      "splash": {
+        "image": "./assets/brand/prefud-primary-logo.png",
+        "backgroundColor": "#F7F6F1"
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundColor": "#F7F6F1",
+        "foregroundImage": "./assets/brand/prefud-isotype-default.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "splash": {
+        "image": "./assets/brand/prefud-primary-logo.png",
+        "backgroundColor": "#F7F6F1"
+      },
+      "package": "com.luilvergo.pantryapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/brand/prefud-isotype-default.png",
+          "color": "#186047",
+          "permissions": [
+            "android.permission.POST_NOTIFICATIONS",
+            "android.permission.ACCESS_FINE_LOCATION",
+            "android.permission.ACCESS_COARSE_LOCATION"
+          ]
+        }
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
+      "expo-location"
+    ]
   }
 }
