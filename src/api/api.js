@@ -1,5 +1,6 @@
 import { getAuthHeader, clearAuth } from './auth';
 
+// const API_BASE_URL = 'http://10.51.26.21:3002';
 const API_BASE_URL = 'http://10.51.26.21:3002';
 
 const API_TIMEOUT = 15000;

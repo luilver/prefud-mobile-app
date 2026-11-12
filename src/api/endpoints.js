@@ -30,7 +30,9 @@ export const ENDPOINTS = {
     payOrder: (id) => `/api/v1/invoices/${id}/pay`,
   },
   security: {
-    login: '/security/login',
+    login: '/api/v1/auth/login',
+    fcmToken: '/api/v1/auth/fcm-token',
+    userFcmToken: (id) => `/api/v1/auth/users/${id}/fcm-token`,
     refresh: '/security/refresh-token',
   },
   fulfillment: {
@@ -44,15 +46,25 @@ export const ENDPOINTS = {
 };
 
 export const USER_ROLES = {
-  DELIVERER: 'Deliverer',
-  SUPERVISOR: 'Supervisor',
-  LOGISTIC: 'Logistic',
-  PROVIDER: 'Provider',
+  SUPERADMIN: 'superadmin',
+  ADMIN: 'admin',
+  DELIVERY_BOY: 'delivery',
+  VENDOR: 'vendor',
+  SUPERVISOR: 'supervisor',
 };
 
 export const ROUTE_BY_ROLE = {
-  [USER_ROLES.DELIVERER]: 'Deliverer',
-  [USER_ROLES.SUPERVISOR]: 'Supervisor',
-  [USER_ROLES.LOGISTIC]: 'Logistic',
-  [USER_ROLES.PROVIDER]: 'Provider',
+  [USER_ROLES.DELIVERY_BOY]: 'DeliveryBoy',
+  [USER_ROLES.ADMIN]: 'Supervisor',
+  [USER_ROLES.SUPERVISOR]: 'CentroAcoque',
+};
+
+export const ORDER_STATUSES = {
+  CREATED: 'CREATED',
+  PAID: 'PAID',
+  PREPARING: 'PREPARING',
+  PICKING_UP: 'PICKING_UP',
+  DELIVERING: 'DELIVERING',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
 };
