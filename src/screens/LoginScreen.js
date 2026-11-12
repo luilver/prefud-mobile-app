@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, StatusBar, TextInput, TouchableOpacity, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
+import { colors, text, spacing, radius, makeStyles } from '../theme';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -11,14 +12,20 @@ export default function LoginScreen({ navigation }) {
   const [loggingIn, setLoggingIn] = useState(false);
   const { login, isAuthenticated, loading } = useAuth();
 
+  // Navigate to role selection once authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigation.navigate('RoleSelection');
+    }
+  }, [isAuthenticated, navigation]);
+
   if (isAuthenticated) {
-    navigation.navigate('RoleSelection');
     return null;
   }
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Missing fields', 'Please enter your email and password.');
+      Alert.alert('Campos faltantes', 'Por favor ingresa tu email y contraseña.');
       return;
     }
     setLoggingIn(true);
@@ -27,9 +34,9 @@ export default function LoginScreen({ navigation }) {
       navigation.navigate('RoleSelection');
     } catch (err) {
       if (err.name === 'AuthError') {
-        Alert.alert('Authentication failed', err.message);
+        Alert.alert('Autenticación fallida', err.message);
       } else {
-        Alert.alert('Login error', err.message || 'Something went wrong.');
+        Alert.alert('Error de login', err.message || 'Algo salió mal.');
       }
     } finally {
       setLoggingIn(false);
@@ -38,29 +45,29 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
       <View style={styles.header}>
-        <Text style={styles.title}>Welcome back</Text>
-        <Text style={styles.subtitle}>Sign in to your Pantry account</Text>
+        <Text style={styles.title}>Bienvenido de vuelta</Text>
+        <Text style={styles.subtitle}>Inicia sesión en tu cuenta Prefud</Text>
       </View>
 
       <View style={styles.form}>
         <TextInput
           style={styles.input}
-          placeholder="Email"
-          placeholderTextColor="#94A3B8"
+          placeholder="Usuario"
+          placeholderTextColor={colors.muted}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
-          autoCompleteType="email"
+          autoCompleteType="username"
           keyboardType="email-address"
           returnKeyType="next"
-          onSubmitEditing={() => password ? handleLogin() : null}
+          onSubmitEditing={() => (password ? handleLogin() : null)}
         />
         <TextInput
           style={styles.input}
-          placeholder="Password"
-          placeholderTextColor="#94A3B8"
+          placeholder="Contraseña"
+          placeholderTextColor={colors.muted}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -71,61 +78,57 @@ export default function LoginScreen({ navigation }) {
       </View>
 
       {loading || loggingIn ? (
-        <TouchableOpacity style={styles.btn} disabled>
-          <ActivityIndicator size="small" color="#FFFFFF" />
+        <TouchableOpacity style={[styles.btn, { backgroundColor: colors.muted }]} disabled>
+          <ActivityIndicator size="small" color={colors.onPrimary} />
         </TouchableOpacity>
       ) : (
         <TouchableOpacity style={styles.btn} onPress={handleLogin}>
-          <Text style={styles.btnText}>Sign in</Text>
+          <Text style={styles.btnText}>Iniciar sesión</Text>
         </TouchableOpacity>
       )}
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Need an account?</Text>
-        <TouchableOpacity style={styles.link} onPress={() => navigation.navigate('Signup')}>
-          <Text style={styles.linkText}>Create account</Text>
-        </TouchableOpacity>
+        <Text style={styles.footerText}>
+          Los usuarios no se crean desde la aplicación. Contacta al administrador.
+        </Text>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeStyles({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   header: {
     padding: 32,
     marginBottom: 32,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#0F172A',
+    ...text.h1,
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#64748B',
+    ...text.bodyMuted,
   },
   form: {
     paddingHorizontal: 24,
     gap: 12,
   },
   input: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 10,
+    borderColor: colors.border,
+    borderRadius: radius.md,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#0F172A',
+    color: colors.onBackground,
   },
   btn: {
-    backgroundColor: '#10B981',
-    borderRadius: 12,
+    backgroundColor: colors.primary,
+    borderRadius: radius.lg,
     paddingVertical: 14,
     alignItems: 'center',
     marginHorizontal: 24,
@@ -135,27 +138,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   btnText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 16,
+    ...text.button,
   },
   footer: {
     marginTop: 24,
     alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 6,
+    paddingHorizontal: 24,
   },
   footerText: {
-    fontSize: 14,
-    color: '#64748B',
-  },
-  link: {
-    // noop
-  },
-  linkText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#3B82F6',
+    ...text.bodyMuted,
+    fontSize: 13,
+    textAlign: 'center',
   },
 });

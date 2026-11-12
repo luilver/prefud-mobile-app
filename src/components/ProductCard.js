@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
+import { colors, text, radius, makeStyles } from '../theme';
 
 export const ProductCard = ({ item, onPress }) => (
   <TouchableOpacity style={styles.card} onPress={onPress}>
@@ -21,10 +22,10 @@ export const ProductCard = ({ item, onPress }) => (
   </TouchableOpacity>
 );
 
-const styles = StyleSheet.create({
+const styles = makeStyles({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     padding: 12,
     marginBottom: 12,
     shadowColor: '#000',
@@ -38,8 +39,8 @@ const styles = StyleSheet.create({
   imageContainer: {
     width: 70,
     height: 70,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    borderRadius: radius.sm,
+    backgroundColor: colors.background,
     marginRight: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -47,13 +48,13 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
-    borderRadius: 8,
+    borderRadius: radius.sm,
   },
   placeholder: {
     width: '100%',
     height: '100%',
-    borderRadius: 8,
-    backgroundColor: '#E2E8F0',
+    borderRadius: radius.sm,
+    backgroundColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -61,14 +62,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   name: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0F172A',
+    ...text.h4,
     marginBottom: 4,
   },
   category: {
+    ...text.bodyMuted,
     fontSize: 13,
-    color: '#64748B',
     marginBottom: 6,
   },
   row: {
@@ -76,13 +75,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   tax: {
-    fontSize: 12,
-    color: '#3B82F6',
+    fontFamily: text.label.fontFamily,
     fontWeight: '500',
+    fontSize: 12,
+    color: colors.primary,
   },
   active: {
-    fontSize: 12,
-    color: '#10B981',
+    fontFamily: text.label.fontFamily,
     fontWeight: '500',
+    fontSize: 12,
+    color: colors.success,
   },
 });
