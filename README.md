@@ -13,13 +13,19 @@ Expo (SDK 58) React Native app for pantry/order management with role-based navig
 
 ## Scripts
 
-```
-npm start        # expo start
-npm run android  # expo run:android
-npm run ios      # expo run:ios
+```bash
+./dev.sh         # boot simulator + Metro + launch app (no rebuild)
+./rebuild.sh     # native rebuild + install (only when native things change)
+./run.sh         # Metro only, foreground
+./kill.sh        # stop Metro/Expo
+./launch.sh      # alias for ./dev.sh
 npm run web      # expo start --web
 npm run lint     # expo lint
 ```
+
+For normal JS/JSX work do **not** rebuild — save the file and Fast Refresh
+applies it. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full loop,
+when a rebuild is actually required, and troubleshooting.
 
 ## Project structure
 
