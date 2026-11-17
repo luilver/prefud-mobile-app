@@ -1,23 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, StatusBar, TextInput, TouchableOpacity, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
+import { storeAuth, DEV_TOKEN } from '../api/auth';
+import { USER_ROLES } from '../api/endpoints';
 import { colors, text, spacing, radius, makeStyles } from '../theme';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loggingIn, setLoggingIn] = useState(false);
-  const { login, isAuthenticated, loading } = useAuth();
-
-  // Navigate to role selection once authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigation.navigate('RoleSelection');
-    }
-  }, [isAuthenticated, navigation]);
+  const [registering, setRegistering] = useState(false);
+  const { login, isAuthenticated, loading, setAuthState } = useAuth();
 
   if (isAuthenticated) {
     return null;
@@ -30,8 +26,9 @@ export default function LoginScreen({ navigation }) {
     }
     setLoggingIn(true);
     try {
-      await login(email, password);
-      navigation.navigate('RoleSelection');
+      const result = await login(email, password);
+      const route = result?.role ? (require('../api/endpoints').ROUTE_BY_ROLE[result.role] || 'RoleSelection') : 'RoleSelection';
+      navigation.replace(route);
     } catch (err) {
       if (err.name === 'AuthError') {
         Alert.alert('Autenticación fallida', err.message);
@@ -40,6 +37,31 @@ export default function LoginScreen({ navigation }) {
       }
     } finally {
       setLoggingIn(false);
+    }
+  };
+
+  const handleRegisterVendor = async () => {
+    if (!email || !password) {
+      Alert.alert('Campos faltantes', 'Por favor ingresa tu usuario y contraseña.');
+      return;
+    }
+    setRegistering(true);
+    try {
+      const vendorUser = {
+        id: 'vendor-0001',
+        username: email,
+        email,
+        role: USER_ROLES.VENDOR,
+        isActive: true,
+      };
+      await storeAuth(DEV_TOKEN, vendorUser);
+      setAuthState(DEV_TOKEN, vendorUser);
+      const route = require('../api/endpoints').ROUTE_BY_ROLE[USER_ROLES.VENDOR] || 'Vendor';
+      navigation.replace(route);
+    } catch (err) {
+      Alert.alert('Error al crear cuenta', err.message || 'Algo salió mal.');
+    } finally {
+      setRegistering(false);
     }
   };
 
@@ -87,9 +109,22 @@ export default function LoginScreen({ navigation }) {
         </TouchableOpacity>
       )}
 
+      <TouchableOpacity
+        style={[styles.btn, { backgroundColor: colors.accent }]}
+        disabled={registering}
+        onPress={handleRegisterVendor}
+      >
+        {registering ? (
+          <ActivityIndicator size="small" color={colors.onPrimary} />
+        ) : (
+          <Text style={styles.btnText}>Crear cuenta de proveedor</Text>
+        )}
+      </TouchableOpacity>
+
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          Los usuarios no se crean desde la aplicación. Contacta al administrador.
+          Las cuentas de proveedor se crean en modo desarrollo. Los demás usuarios: contacta al
+          administrador.
         </Text>
       </View>
     </SafeAreaView>

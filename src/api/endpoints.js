@@ -54,9 +54,10 @@ export const USER_ROLES = {
 };
 
 export const ROUTE_BY_ROLE = {
-  [USER_ROLES.DELIVERY_BOY]: 'DeliveryBoy',
+  [USER_ROLES.DELIVERY_BOY]: 'OrdersList',
   [USER_ROLES.ADMIN]: 'Supervisor',
   [USER_ROLES.SUPERVISOR]: 'CentroAcoque',
+  [USER_ROLES.VENDOR]: 'Vendor',
 };
 
 export const ORDER_STATUSES = {

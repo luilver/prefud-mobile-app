@@ -10,7 +10,9 @@ import DeliveryBoyScreen from './src/screens/DeliveryBoyScreen';
 import DeliveryMapScreen from './src/screens/DeliveryMapScreen';
 import SupervisorScreen from './src/screens/SupervisorScreen';
 import CentroAcoqueScreen from './src/screens/CentroAcoqueScreen';
+import VendorScreen from './src/screens/VendorScreen';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
+import { ROUTE_BY_ROLE } from './src/api/endpoints';
 import { colors, text, spacing, radius, makeStyles } from './src/theme';
 
 const Stack = createStackNavigator();
@@ -27,7 +29,7 @@ export default function App() {
 }
 
 function AppContent() {
-  const { loading, isAuthenticated } = useAuth();
+  const { loading, isAuthenticated, role } = useAuth();
 
   if (loading) {
     return (
@@ -37,37 +39,30 @@ function AppContent() {
     );
   }
 
+  const roleRoute = role ? ROUTE_BY_ROLE[role] : null;
+  const initialRouteName = !isAuthenticated ? 'Login' : roleRoute || 'RoleSelection';
+
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!isAuthenticated ? (
-          <Stack.Screen name="Login" component={LoginScreen} options={{ gestureEnabled: false }} />
-        ) : (
-          <>
-            <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
-            <Stack.Screen name="OrdersList" component={OrdersListScreen} />
-            <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
-            <Stack.Screen name="DeliveryBoy" component={DeliveryBoyScreen} />
-            <Stack.Screen name="DeliveryMap" component={DeliveryMapScreen} />
-            <Stack.Screen name="Supervisor" component={SupervisorScreen} />
-            <Stack.Screen name="CentroAcoque" component={CentroAcoqueScreen} />
-          </>
-        )}
+      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
+        <Stack.Screen name="Login" component={LoginScreen} options={{ gestureEnabled: false }} />
+        <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
+        <Stack.Screen name="OrdersList" component={OrdersListScreen} />
+        <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
+        <Stack.Screen name="DeliveryBoy" component={DeliveryBoyScreen} />
+        <Stack.Screen name="DeliveryMap" component={DeliveryMapScreen} />
+        <Stack.Screen name="Supervisor" component={SupervisorScreen} />
+        <Stack.Screen name="CentroAcoque" component={CentroAcoqueScreen} />
+        <Stack.Screen name="Vendor" component={VendorScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
 
 function RoleSelectionScreen({ navigation }) {
-  const { logout, isDeliveryBoy, isSupervisor, isCentroAcoque } = useAuth();
+  const { logout, isDeliveryBoy, isSupervisor, isCentroAcoque, isVendor, role } = useAuth();
 
-  const targetRoute = isDeliveryBoy
-    ? 'DeliveryBoy'
-    : isSupervisor
-      ? 'Supervisor'
-      : isCentroAcoque
-        ? 'CentroAcoque'
-        : null;
+  const targetRoute = role ? ROUTE_BY_ROLE[role] : null;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -75,17 +70,31 @@ function RoleSelectionScreen({ navigation }) {
       <TouchableOpacity style={styles.btnOrders} onPress={() => navigation.navigate('OrdersList')}>
         <Text style={styles.btnText}>Ver pedidos</Text>
       </TouchableOpacity>
-      {targetRoute && (
+      {targetRoute && targetRoute !== 'OrdersList' && (
         <TouchableOpacity
           style={styles.btnRole}
           onPress={() => navigation.navigate(targetRoute)}
         >
           <Text style={styles.btnText}>
-            {isDeliveryBoy ? 'Mis pedidos (Delivery)' : isSupervisor ? 'Gestionar estados' : 'Gestionar stock'}
+            {isDeliveryBoy
+              ? 'Ver pedidos'
+              : isSupervisor
+                ? 'Gestionar estados'
+                : isCentroAcoque
+                  ? 'Gestionar stock'
+                  : isVendor
+                    ? 'Gestionar inventario'
+                    : 'Ir a mi panel'}
           </Text>
         </TouchableOpacity>
       )}
-      <TouchableOpacity style={styles.signout} onPress={logout}>
+      <TouchableOpacity
+        style={styles.signout}
+        onPress={async () => {
+          await logout();
+          navigation.navigate('Login');
+        }}
+      >
         <Text style={styles.signoutText}>Salir</Text>
       </TouchableOpacity>
     </SafeAreaView>

@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api } from '../api/api';
 import { ENDPOINTS, USER_ROLES } from '../api/endpoints';
-import { storeAuth, clearAuth, DEV_TOKEN } from '../api/auth';
+import { storeAuth, clearAuth, getToken, getUser, DEV_TOKEN } from '../api/auth';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import messaging from '@react-native-firebase/messaging';
@@ -22,22 +22,37 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const init = async () => {
       try {
-        // Force authentication to match the configured Delivery Boy user
-        await storeAuth(DEV_TOKEN, {
-          id: FORCED_USER_ID,
-          username: FORCED_USERNAME,
-          email: FORCED_EMAIL,
-          role: FORCED_ROLE,
-          isActive: true,
-        });
-        setToken(DEV_TOKEN);
-        setUser({
-          id: FORCED_USER_ID,
-          username: FORCED_USERNAME,
-          email: FORCED_EMAIL,
-          role: FORCED_ROLE,
-          isActive: true,
-        });
+        const storedToken = await getToken();
+        if (storedToken) {
+          const storedUser = await getUser();
+          setToken(storedToken);
+          setUser(
+            storedUser || {
+              id: FORCED_USER_ID,
+              username: FORCED_USERNAME,
+              email: FORCED_EMAIL,
+              role: FORCED_ROLE,
+              isActive: true,
+            }
+          );
+        } else {
+          // Force authentication to match the configured Delivery Boy user
+          await storeAuth(DEV_TOKEN, {
+            id: FORCED_USER_ID,
+            username: FORCED_USERNAME,
+            email: FORCED_EMAIL,
+            role: FORCED_ROLE,
+            isActive: true,
+          });
+          setToken(DEV_TOKEN);
+          setUser({
+            id: FORCED_USER_ID,
+            username: FORCED_USERNAME,
+            email: FORCED_EMAIL,
+            role: FORCED_ROLE,
+            isActive: true,
+          });
+        }
 
         // Request geolocation and notification permissions per REQUERIMIENTOS §5
         await requestPermissions();
@@ -68,15 +83,15 @@ export const AuthProvider = ({ children }) => {
     try {
       await messaging().registerDeviceForRemoteMessages();
       const fcmToken = await messaging().getToken();
-      if (fcmToken && token) {
-        await storeAuth(token, { ...user, fcmToken });
+      if (fcmToken && DEV_TOKEN) {
+        await storeAuth(DEV_TOKEN, { ...user, fcmToken });
         setUser({ ...user, fcmToken });
         console.log('FCM token stored locally:', fcmToken);
       }
     } catch (err) {
       console.warn('Local FCM token storage failed', err);
     }
-  }, [token, user]);
+  }, [user]);
 
   const registerFcmToken = useCallback(
     async (authToken, userId, userData) => {
@@ -118,23 +133,19 @@ export const AuthProvider = ({ children }) => {
     const authToken = data.accessToken || data.token || DEV_TOKEN;
     const userData = data.user || {};
     const role = userData.role || FORCED_ROLE;
-    await storeAuth(authToken, {
+    const normalizedUser = {
+      id: userData.id,
+      vendorId: userData.vendorId,
       username: userData.username || username,
       email: userData.email,
       role,
       isActive: userData.isActive !== false,
       marketId: userData.marketId,
       marketName: userData.marketName,
-    });
+    };
+    await storeAuth(authToken, normalizedUser);
     setToken(authToken);
-    setUser({
-      username: userData.username || username,
-      email: userData.email,
-      role,
-      isActive: userData.isActive !== false,
-      marketId: userData.marketId,
-      marketName: userData.marketName,
-    });
+    setUser(normalizedUser);
 
     // Register FCM token after login
     if (userData.id) {
@@ -166,6 +177,12 @@ export const AuthProvider = ({ children }) => {
   const isDeliveryBoy = role === USER_ROLES.DELIVERY_BOY;
   const isSupervisor = role === USER_ROLES.SUPERVISOR;
   const isCentroAcoque = role === USER_ROLES.CENTRO_ACOQUE;
+  const isVendor = role === USER_ROLES.VENDOR;
+
+  const setAuthState = useCallback((tokenVal, userVal) => {
+    setToken(tokenVal);
+    setUser(userVal);
+  }, []);
 
   const value = {
     token,
@@ -174,10 +191,12 @@ export const AuthProvider = ({ children }) => {
     loading,
     login,
     logout,
+    setAuthState,
     isAuthenticated: !!token,
     isDeliveryBoy,
     isSupervisor,
     isCentroAcoque,
+    isVendor,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
