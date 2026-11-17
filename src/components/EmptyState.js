@@ -2,8 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors, text, radius, spacing, makeStyles } from '../theme';
 
-export const EmptyState = ({ title, message, onRetry, retryLabel = 'Try Again' }) => (
-  <View style={styles.container}>
+export const EmptyState = ({ title, message, onRetry, retryLabel = 'Try Again', style }) => (
+  <View style={[styles.container, style]}>
     <Text style={styles.title}>{title}</Text>
     <Text style={styles.message}>{message}</Text>
     {onRetry && (
@@ -20,6 +20,7 @@ const styles = makeStyles({
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.md,
+    paddingVertical: spacing.xl,
     gap: 12,
   },
   title: {
