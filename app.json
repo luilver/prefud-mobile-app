@@ -9,6 +9,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.luilver-go.pantry-app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "pantry-app uses your location to show nearby orders and markets."
+      },
       "splash": {
         "image": "./assets/brand/prefud-primary-logo.png",
         "backgroundColor": "#F7F6F1"
