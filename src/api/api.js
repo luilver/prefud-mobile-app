@@ -1,7 +1,7 @@
 import { getAuthHeader, clearAuth } from './auth';
 
-// const API_BASE_URL = 'http://10.51.26.21:3002';
-const API_BASE_URL = 'http://10.51.26.21:3002';
+const API_BASE_URL = 'http://10.0.250.176:3002';
+// const API_BASE_URL = 'https://b957-66-7-117-142.ngrok-free.app';
 
 const API_TIMEOUT = 15000;
 
