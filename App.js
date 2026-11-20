@@ -44,16 +44,29 @@ function AppContent() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
-        <Stack.Screen name="Login" component={LoginScreen} options={{ gestureEnabled: false }} />
-        <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
-        <Stack.Screen name="OrdersList" component={OrdersListScreen} />
-        <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
-        <Stack.Screen name="DeliveryBoy" component={DeliveryBoyScreen} />
-        <Stack.Screen name="DeliveryMap" component={DeliveryMapScreen} />
-        <Stack.Screen name="Supervisor" component={SupervisorScreen} />
-        <Stack.Screen name="CentroAcoque" component={CentroAcoqueScreen} />
-        <Stack.Screen name="Vendor" component={VendorScreen} />
+      <Stack.Navigator
+        key={isAuthenticated ? 'authenticated' : 'unauthenticated'}
+        screenOptions={{ headerShown: false }}
+        initialRouteName={initialRouteName}
+      >
+        {!isAuthenticated ? (
+          <Stack.Screen
+            name="Login"
+            component={LoginScreen}
+            options={{ gestureEnabled: false }}
+          />
+        ) : (
+          <>
+            <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
+            <Stack.Screen name="OrdersList" component={OrdersListScreen} />
+            <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
+            <Stack.Screen name="DeliveryBoy" component={DeliveryBoyScreen} />
+            <Stack.Screen name="DeliveryMap" component={DeliveryMapScreen} />
+            <Stack.Screen name="Supervisor" component={SupervisorScreen} />
+            <Stack.Screen name="CentroAcoque" component={CentroAcoqueScreen} />
+            <Stack.Screen name="Vendor" component={VendorScreen} />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -88,13 +101,7 @@ function RoleSelectionScreen({ navigation }) {
           </Text>
         </TouchableOpacity>
       )}
-      <TouchableOpacity
-        style={styles.signout}
-        onPress={async () => {
-          await logout();
-          navigation.navigate('Login');
-        }}
-      >
+      <TouchableOpacity style={styles.signout} onPress={logout}>
         <Text style={styles.signoutText}>Salir</Text>
       </TouchableOpacity>
     </SafeAreaView>

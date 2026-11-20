@@ -8,7 +8,7 @@ import { storeAuth, DEV_TOKEN } from '../api/auth';
 import { USER_ROLES } from '../api/endpoints';
 import { colors, text, spacing, radius, makeStyles } from '../theme';
 
-export default function LoginScreen({ navigation }) {
+export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loggingIn, setLoggingIn] = useState(false);
@@ -26,9 +26,7 @@ export default function LoginScreen({ navigation }) {
     }
     setLoggingIn(true);
     try {
-      const result = await login(email, password);
-      const route = result?.role ? (require('../api/endpoints').ROUTE_BY_ROLE[result.role] || 'RoleSelection') : 'RoleSelection';
-      navigation.replace(route);
+      await login(email, password);
     } catch (err) {
       if (err.name === 'AuthError') {
         Alert.alert('Autenticación fallida', err.message);
@@ -56,8 +54,6 @@ export default function LoginScreen({ navigation }) {
       };
       await storeAuth(DEV_TOKEN, vendorUser);
       setAuthState(DEV_TOKEN, vendorUser);
-      const route = require('../api/endpoints').ROUTE_BY_ROLE[USER_ROLES.VENDOR] || 'Vendor';
-      navigation.replace(route);
     } catch (err) {
       Alert.alert('Error al crear cuenta', err.message || 'Algo salió mal.');
     } finally {
