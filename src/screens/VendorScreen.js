@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View, Text, StatusBar, ScrollView, TouchableOpacity, Alert,
-  TextInput, Switch, ActivityIndicator,
+  TextInput, Switch, ActivityIndicator, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../api/api';
 import { ENDPOINTS } from '../api/endpoints';
 import { Loading } from '../components/Loading';
 import { EmptyState } from '../components/EmptyState';
+import { BackButton } from '../components/BackButton';
 import { useAuth } from '../hooks/useAuth';
 import { colors, text, radius, spacing, makeStyles } from '../theme';
 
@@ -33,11 +34,28 @@ export default function VendorScreen({ navigation }) {
   const [showUnitPicker, setShowUnitPicker] = useState(false);
 
   const [price, setPrice] = useState('');
+  const [stockQty, setStockQty] = useState('0');
   const [saving, setSaving] = useState(false);
 
-  const [priceDrafts, setPriceDrafts] = useState({});
+  const [drafts, setDrafts] = useState({});
 
   const marketId = user?.marketId || user?.market || null;
+
+  const collapsePickers = useCallback(() => {
+    setShowVendorPicker(false);
+    setShowProductList(false);
+    setShowUnitPicker(false);
+  }, []);
+
+  useEffect(() => {
+    const doc = globalThis.document;
+    if (Platform.OS !== 'web' || !doc) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') collapsePickers();
+    };
+    doc.addEventListener('keydown', handleKeyDown);
+    return () => doc.removeEventListener('keydown', handleKeyDown);
+  }, [collapsePickers]);
 
   useEffect(() => {
     let mounted = true;
@@ -138,8 +156,13 @@ export default function VendorScreen({ navigation }) {
       return;
     }
     const priceValue = Number(price);
-    if (!price || Number.isNaN(priceValue) || priceValue < 0) {
+    const qtyValue = Number(stockQty);
+    if (price === '' || Number.isNaN(priceValue) || priceValue < 0) {
       Alert.alert('Precio inválido', 'Ingresa un precio válido (mayor o igual a 0).');
+      return;
+    }
+    if (stockQty === '' || Number.isNaN(qtyValue) || qtyValue < 0) {
+      Alert.alert('Cantidad inválida', 'Ingresa una cantidad válida (mayor o igual a 0).');
       return;
     }
 
@@ -158,11 +181,13 @@ export default function VendorScreen({ navigation }) {
         productId: selectedProduct.id,
         unitOfMeasureId: selectedUnitId,
         price: priceValue,
+        stockQty: qtyValue,
         isAvailable: true,
       });
       Alert.alert('Producto agregado al inventario');
       clearProductSelection();
       setPrice('');
+      setStockQty('0');
       await refetchInventories();
     } catch (err) {
       Alert.alert('Error', err.message || 'No se pudo agregar al inventario');
@@ -184,19 +209,57 @@ export default function VendorScreen({ navigation }) {
     }
   };
 
-  const savePrice = async (item) => {
-    const draft = priceDrafts[item.id];
-    const value = Number(draft);
-    if (draft === undefined || draft === '' || Number.isNaN(value) || value < 0) {
-      Alert.alert('Precio inválido', 'Ingresa un precio válido (mayor o igual a 0).');
+  const updateDraft = (itemId, field, value) => {
+    setDrafts((prev) => ({
+      ...prev,
+      [itemId]: { ...(prev[itemId] || {}), [field]: value },
+    }));
+  };
+
+  const saveInventory = async (item) => {
+    const draft = drafts[item.id] || {};
+    const payload = {};
+
+    if (draft.price !== undefined && draft.price !== '') {
+      const priceValue = Number(draft.price);
+      if (Number.isNaN(priceValue) || priceValue < 0) {
+        Alert.alert('Precio inválido', 'Ingresa un precio válido (mayor o igual a 0).');
+        return;
+      }
+      payload.price = priceValue;
+    }
+
+    if (draft.stockQty !== undefined && draft.stockQty !== '') {
+      const qtyValue = Number(draft.stockQty);
+      if (Number.isNaN(qtyValue) || qtyValue < 0) {
+        Alert.alert('Cantidad inválida', 'Ingresa una cantidad válida (mayor o igual a 0).');
+        return;
+      }
+      payload.stockQty = qtyValue;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      Alert.alert('Sin cambios', 'Ingresa un precio o una cantidad para guardar.');
       return;
     }
-    await updateInventory(item, 'price', value);
-    setPriceDrafts((prev) => {
-      const next = { ...prev };
-      delete next[item.id];
-      return next;
-    });
+
+    setSaving(true);
+    try {
+      await api.patch(ENDPOINTS.vendors.inventoryById(item.id), payload);
+      setInventories((prev) =>
+        prev.map((i) => (i.id === item.id ? { ...i, ...payload } : i))
+      );
+      setDrafts((prev) => {
+        const next = { ...prev };
+        delete next[item.id];
+        return next;
+      });
+      Alert.alert('Datos actualizados', 'Cambios guardados.');
+    } catch (err) {
+      Alert.alert('Error', err.message || 'No se pudieron guardar los cambios');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -215,8 +278,10 @@ export default function VendorScreen({ navigation }) {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        onTouchEnd={collapsePickers}
       >
         <View style={styles.header}>
+          <BackButton />
           <View style={styles.headerText}>
             <Text style={styles.title}>Inventario — Proveedor</Text>
             <Text style={styles.subtitle}>
@@ -335,13 +400,22 @@ export default function VendorScreen({ navigation }) {
             </View>
           )}
 
-          <TextInput
-            style={styles.input}
-            placeholder="Precio (USD)"
-            value={price}
-            onChangeText={setPrice}
-            keyboardType="numeric"
-          />
+          <View style={styles.priceRow}>
+            <TextInput
+              style={[styles.input, styles.inputHalf]}
+              placeholder="Precio (USD)"
+              value={price}
+              onChangeText={setPrice}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={[styles.input, styles.inputHalf]}
+              placeholder="Cantidad"
+              value={stockQty}
+              onChangeText={setStockQty}
+              keyboardType="numeric"
+            />
+          </View>
 
           <TouchableOpacity
             style={[styles.addBtn, saving && styles.addBtnDisabled]}
@@ -361,7 +435,7 @@ export default function VendorScreen({ navigation }) {
           {inventories.length === 0 ? (
             <EmptyState
               title="Sin ítems de inventario"
-              message="Busca un producto del catálogo y agrégalo con su precio."
+              message="Busca un producto del catálogo y agrégalo con precio y cantidad."
               style={{ flex: 0 }}
             />
           ) : (
@@ -373,23 +447,30 @@ export default function VendorScreen({ navigation }) {
                       {item.product?.name || 'Producto'}
                     </Text>
                     <Text style={styles.productMeta}>
-                      ${Number(item.price || 0).toFixed(2)}
+                      ${Number(item.price || 0).toFixed(2)} · Cantidad:{' '}
+                      {Number(item.stockQty || 0).toFixed(3)}
                       {item.unitOfMeasure?.name ? ` · ${item.unitOfMeasure.name}` : ''}
                     </Text>
                   </View>
                   <View style={styles.editControls}>
                     <TextInput
                       style={styles.qtyInput}
-                      placeholder={String(item.price ?? '')}
-                      value={priceDrafts[item.id] ?? ''}
-                      onChangeText={(v) =>
-                        setPriceDrafts((prev) => ({ ...prev, [item.id]: v }))
-                      }
+                      placeholder={`Precio: ${Number(item.price || 0).toFixed(2)}`}
+                      value={drafts[item.id]?.price ?? ''}
+                      onChangeText={(v) => updateDraft(item.id, 'price', v)}
+                      keyboardType="numeric"
+                    />
+                    <TextInput
+                      style={styles.qtyInput}
+                      placeholder={`Cantidad: ${Number(item.stockQty || 0).toFixed(3)}`}
+                      value={drafts[item.id]?.stockQty ?? ''}
+                      onChangeText={(v) => updateDraft(item.id, 'stockQty', v)}
                       keyboardType="numeric"
                     />
                     <TouchableOpacity
                       style={styles.saveBtn}
-                      onPress={() => savePrice(item)}
+                      onPress={() => saveInventory(item)}
+                      disabled={saving}
                     >
                       <Text style={styles.saveText}>Guardar</Text>
                     </TouchableOpacity>
@@ -498,6 +579,13 @@ const styles = makeStyles({
     paddingVertical: 14,
     fontSize: 16,
     color: colors.onBackground,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  inputHalf: {
+    flex: 1,
   },
   selectRow: {
     backgroundColor: colors.surface,
