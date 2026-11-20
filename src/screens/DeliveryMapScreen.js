@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { BackButton } from '../components/BackButton';
 import * as Location from 'expo-location';
 import { colors, text, radius, spacing, makeStyles } from '../theme';
 
@@ -60,9 +61,7 @@ export default function DeliveryMapScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
       <View style={styles.header}>
-        <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>←</Text>
-        </TouchableOpacity>
+        <BackButton />
         <Text style={styles.title}>Mapa del pedido</Text>
       </View>
 
@@ -145,13 +144,6 @@ const styles = makeStyles({
     alignItems: 'center',
     padding: spacing.md,
     marginBottom: 16,
-  },
-  back: {
-    marginRight: 12,
-  },
-  backText: {
-    fontSize: 20,
-    color: colors.onBackground,
   },
   title: {
     ...text.h3,

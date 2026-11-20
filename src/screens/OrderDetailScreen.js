@@ -1,13 +1,13 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, StatusBar, TouchableOpacity, Alert,
+  View, Text, StyleSheet, StatusBar, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
+import { BackButton } from '../components/BackButton';
 import { colors, text, radius, spacing, makeStyles } from '../theme';
 
 export default function OrderDetailScreen() {
-  const navigation = useNavigation();
   const route = useRoute();
   const { order } = route.params || {};
 
@@ -15,9 +15,7 @@ export default function OrderDetailScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
       <View style={styles.header}>
-        <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>←</Text>
-        </TouchableOpacity>
+        <BackButton />
         <Text style={styles.title}>Detalle del pedido</Text>
       </View>
 
@@ -76,13 +74,6 @@ const styles = makeStyles({
     alignItems: 'center',
     padding: spacing.md,
     marginBottom: 16,
-  },
-  back: {
-    marginRight: 12,
-  },
-  backText: {
-    fontSize: 20,
-    color: colors.onBackground,
   },
   title: {
     ...text.h3,

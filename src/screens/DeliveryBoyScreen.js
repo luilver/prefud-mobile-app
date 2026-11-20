@@ -7,6 +7,7 @@ import { api } from '../api/api';
 import { ENDPOINTS, ORDER_STATUSES } from '../api/endpoints';
 import { Loading } from '../components/Loading';
 import { EmptyState } from '../components/EmptyState';
+import { BackButton } from '../components/BackButton';
 import { useAuth } from '../hooks/useAuth';
 import { colors, text, radius, spacing, makeStyles } from '../theme';
 
@@ -84,6 +85,7 @@ export default function DeliveryBoyScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
       <View style={styles.header}>
+        <BackButton />
         <Text style={styles.title}>Pedidos asignados</Text>
         <Text style={styles.subtitle}>Delivery Boy</Text>
         <TouchableOpacity style={styles.signout} onPress={logout}>

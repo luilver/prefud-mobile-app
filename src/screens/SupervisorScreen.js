@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, StatusBar, FlatList, TouchableOpacity, Alert, Picker,
+  View, Text, StyleSheet, StatusBar, FlatList, TouchableOpacity, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../api/api';
 import { ENDPOINTS, ORDER_STATUSES } from '../api/endpoints';
 import { Loading } from '../components/Loading';
 import { EmptyState } from '../components/EmptyState';
+import { BackButton } from '../components/BackButton';
+import { OptionPicker } from '../components/OptionPicker';
 import { useAuth } from '../hooks/useAuth';
 import { colors, text, radius, spacing, makeStyles } from '../theme';
 
@@ -74,16 +76,13 @@ export default function SupervisorScreen({ navigation }) {
         </Text>
         <View style={styles.statusRow}>
           <Text style={styles.statusLabel}>{statusLabel(item.status)}</Text>
-          <Picker
+          <OptionPicker
             style={styles.picker}
-            selectedValue={item.status}
+            value={item.status}
+            options={STATUS_OPTIONS}
             onValueChange={(value) => updateStatus(item, value)}
-            enabled={!isUpdating}
-          >
-            {STATUS_OPTIONS.map((s) => (
-              <Picker.Item key={s.value} label={s.label} value={s.value} />
-            ))}
-          </Picker>
+            disabled={isUpdating}
+          />
         </View>
         {isUpdating && <Text style={styles.updating}>Actualizando…</Text>}
       </TouchableOpacity>
@@ -94,6 +93,7 @@ export default function SupervisorScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
       <View style={styles.header}>
+        <BackButton />
         <Text style={styles.title}>Pedidos — Supervisor</Text>
         <Text style={styles.subtitle}>Centro de Acoque</Text>
         <TouchableOpacity style={styles.signout} onPress={logout}>
@@ -186,7 +186,6 @@ const styles = makeStyles({
   },
   picker: {
     flex: 1,
-    color: colors.onBackground,
   },
   updating: {
     ...text.bodyMuted,

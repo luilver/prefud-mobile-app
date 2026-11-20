@@ -7,6 +7,7 @@ import { api } from '../api/api';
 import { ENDPOINTS } from '../api/endpoints';
 import { Loading } from '../components/Loading';
 import { EmptyState } from '../components/EmptyState';
+import { BackButton } from '../components/BackButton';
 import { useAuth } from '../hooks/useAuth';
 import { colors, text, radius, spacing, makeStyles } from '../theme';
 
@@ -60,6 +61,7 @@ export default function OrdersListScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
       <View style={styles.header}>
+        <BackButton />
         <Text style={styles.title}>Pedidos</Text>
         <Text style={styles.subtitle}>Rol: {roleLabel}</Text>
         <TouchableOpacity style={styles.signout} onPress={logout}>
