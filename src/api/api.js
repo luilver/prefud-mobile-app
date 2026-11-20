@@ -1,7 +1,20 @@
+import { NativeModules } from 'react-native';
 import { getAuthHeader, clearAuth } from './auth';
 
-const API_BASE_URL = 'http://10.0.250.176:3002';
-// const API_BASE_URL = 'https://b957-66-7-117-142.ngrok-free.app';
+const DEFAULT_HOST = '10.51.26.8';
+
+function resolveApiHost() {
+  const sourceCode = NativeModules.SourceCode;
+  const scriptURL =
+    sourceCode?.scriptURL || sourceCode?.getConstants?.().scriptURL;
+  if (typeof scriptURL === 'string') {
+    const match = scriptURL.match(/^https?:\/\/([^/:]+)/);
+    if (match) return match[1];
+  }
+  return DEFAULT_HOST;
+}
+
+const API_BASE_URL = `http://${resolveApiHost()}:3002`;
 
 const API_TIMEOUT = 15000;
 
