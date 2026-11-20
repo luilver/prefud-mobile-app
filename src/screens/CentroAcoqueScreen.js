@@ -1,47 +1,144 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, StatusBar, FlatList, TouchableOpacity, Alert,
-  TextInput, Picker,
+  View, Text, StatusBar, FlatList, TouchableOpacity, Alert, TextInput,
+  ScrollView, ActivityIndicator, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../api/api';
 import { ENDPOINTS, ORDER_STATUSES } from '../api/endpoints';
 import { Loading } from '../components/Loading';
 import { EmptyState } from '../components/EmptyState';
+import { BackButton } from '../components/BackButton';
+import { OptionPicker } from '../components/OptionPicker';
 import { useAuth } from '../hooks/useAuth';
 import { colors, text, radius, spacing, makeStyles } from '../theme';
 
+const unwrapItems = (data) => (Array.isArray(data) ? data : data?.items || []);
+
 const STATUS_OPTIONS = [
-  { value: ORDER_STATUSES.RECEIVED, label: 'Recibido' },
-  { value: ORDER_STATUSES.PACKED, label: 'Recibido y armado el paquete' },
-  { value: ORDER_STATUSES.DELIVERED_TO_BOY, label: 'Entregado al delivery boy' },
+  { value: ORDER_STATUSES.CREATED, label: 'Creado' },
+  { value: ORDER_STATUSES.PAID, label: 'Pagado' },
+  { value: ORDER_STATUSES.PREPARING, label: 'Preparando' },
+  { value: ORDER_STATUSES.PICKING_UP, label: 'En recolección' },
+  { value: ORDER_STATUSES.DELIVERING, label: 'En camino' },
+  { value: ORDER_STATUSES.COMPLETED, label: 'Completado' },
   { value: ORDER_STATUSES.CANCELLED, label: 'Cancelado' },
-  { value: ORDER_STATUSES.LOST_INCIDENT, label: 'Perdido / Incidente' },
 ];
 
 export default function CentroAcoqueScreen({ navigation }) {
   const { logout, user } = useAuth();
   const [tab, setTab] = useState('orders');
   const [orders, setOrders] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [stock, setStock] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const marketId = user?.marketId || user?.market || 'default-market';
+
+  const [catalogProducts, setCatalogProducts] = useState([]);
+  const [units, setUnits] = useState([]);
+  const [vendors, setVendors] = useState([]);
+  const [inventories, setInventories] = useState([]);
+
+  const [selectedVendorId, setSelectedVendorId] = useState(null);
+  const [showVendorPicker, setShowVendorPicker] = useState(false);
+
+  const [productSearch, setProductSearch] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [showProductList, setShowProductList] = useState(false);
+
+  const [selectedUnitId, setSelectedUnitId] = useState(null);
+  const [showUnitPicker, setShowUnitPicker] = useState(false);
+
+  const [price, setPrice] = useState('');
+  const [stockQty, setStockQty] = useState('');
+  const [drafts, setDrafts] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  const marketId = user?.marketId || user?.market || null;
+
+  const collapsePickers = useCallback(() => {
+    setShowVendorPicker(false);
+    setShowProductList(false);
+    setShowUnitPicker(false);
+  }, []);
+
+  useEffect(() => {
+    const doc = globalThis.document;
+    if (Platform.OS !== 'web' || !doc) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') collapsePickers();
+    };
+    doc.addEventListener('keydown', handleKeyDown);
+    return () => doc.removeEventListener('keydown', handleKeyDown);
+  }, [collapsePickers]);
+
+  const marketVendors = useMemo(
+    () =>
+      marketId
+        ? vendors.filter((v) => v.marketId === marketId || v.market?.id === marketId)
+        : vendors,
+    [vendors, marketId]
+  );
+
+  const selectedVendor = marketVendors.find((v) => v.id === selectedVendorId) || null;
+  const selectedUnit = units.find((u) => u.id === selectedUnitId) || null;
+
+  const filteredProducts = useMemo(() => {
+    const term = productSearch.trim().toLowerCase();
+    if (!term) return catalogProducts.slice(0, 50);
+    return catalogProducts.filter((p) => {
+      const name = (p.name || '').toLowerCase();
+      const synonyms = Array.isArray(p.searchSynonyms)
+        ? p.searchSynonyms.join(' ').toLowerCase()
+        : (p.searchSynonyms || '').toLowerCase();
+      return name.includes(term) || synonyms.includes(term);
+    });
+  }, [catalogProducts, productSearch]);
 
   const fetchData = async () => {
     try {
-      const [ordersData, productsData] = await Promise.all([
+      const [ordersData, productsData, unitsData, vendorsData] = await Promise.all([
         api.get(ENDPOINTS.orders.orders),
-        api.get(ENDPOINTS.catalog.products),
+        api.get(`${ENDPOINTS.catalog.products}?limit=100`),
+        api.get(ENDPOINTS.catalog.units),
+        api.get(ENDPOINTS.vendors.vendors),
       ]);
-      setOrders(ordersData || []);
-      setProducts(productsData || []);
-      setStock((productsData || []).map((p) => ({ ...p, qty: p.stockQty ?? 0 })));
+
+      const unitList = unwrapItems(unitsData);
+      const vendorList = unwrapItems(vendorsData);
+      const marketVendorList = marketId
+        ? vendorList.filter((v) => v.marketId === marketId || v.market?.id === marketId)
+        : vendorList;
+
+      setOrders(unwrapItems(ordersData));
+      setCatalogProducts(unwrapItems(productsData));
+      setUnits(unitList);
+      setVendors(vendorList);
+
+      const defaultVendor =
+        marketVendorList.find((v) => v.id === user?.vendorId) || marketVendorList[0];
+      setSelectedVendorId(defaultVendor?.id || null);
+      if (defaultVendor?.id) await refetchInventories(defaultVendor.id);
+
+      const defaultUnit =
+        unitList.find((u) => u.name?.toLowerCase() === 'unidad') ||
+        unitList.find((u) => u.name?.toLowerCase().includes('libra')) ||
+        unitList[0];
+      setSelectedUnitId(defaultUnit?.id || null);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refetchInventories = async (vendorId = selectedVendorId) => {
+    try {
+      const url = vendorId
+        ? `${ENDPOINTS.vendors.inventories}?vendorId=${vendorId}`
+        : ENDPOINTS.vendors.inventories;
+      const data = await api.get(url);
+      setInventories(unwrapItems(data));
+    } catch (err) {
+      setError(err.message || 'No se pudo cargar el inventario.');
     }
   };
 
@@ -50,6 +147,125 @@ export default function CentroAcoqueScreen({ navigation }) {
       await fetchData();
     })();
   }, []);
+
+  const selectVendor = async (vendor) => {
+    setSelectedVendorId(vendor.id);
+    setShowVendorPicker(false);
+    setDrafts({});
+    await refetchInventories(vendor.id);
+  };
+
+  const selectProduct = (product) => {
+    setSelectedProduct(product);
+    setProductSearch(product.name);
+    setShowProductList(false);
+  };
+
+  const clearProductSelection = () => {
+    setSelectedProduct(null);
+    setProductSearch('');
+    setShowProductList(false);
+  };
+
+  const addStockItem = async () => {
+    if (!selectedVendorId) {
+      Alert.alert('Falta el puesto', 'Selecciona el puesto del proveedor.');
+      return;
+    }
+    if (!selectedProduct?.id) {
+      Alert.alert('Falta el producto', 'Busca y selecciona un producto del catálogo.');
+      return;
+    }
+    if (!selectedUnitId) {
+      Alert.alert('Falta la unidad', 'Selecciona una unidad de medida.');
+      return;
+    }
+
+    const priceValue = Number(price);
+    const qtyValue = Number(stockQty);
+    if (price === '' || Number.isNaN(priceValue) || priceValue < 0) {
+      Alert.alert('Precio inválido', 'Ingresa un precio válido (mayor o igual a 0).');
+      return;
+    }
+    if (stockQty === '' || Number.isNaN(qtyValue) || qtyValue < 0) {
+      Alert.alert('Cantidad inválida', 'Ingresa una cantidad válida (mayor o igual a 0).');
+      return;
+    }
+
+    const alreadyExists = inventories.some(
+      (inv) => inv.productId === selectedProduct.id && inv.vendorId === selectedVendorId
+    );
+    if (alreadyExists) {
+      Alert.alert(
+        'Ya existe',
+        'Ese producto ya está en el inventario de este puesto. Edita su precio y cantidad en la lista.'
+      );
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await api.post(ENDPOINTS.vendors.inventories, {
+        vendorId: selectedVendorId,
+        productId: selectedProduct.id,
+        unitOfMeasureId: selectedUnitId,
+        price: priceValue,
+        stockQty: qtyValue,
+        isAvailable: true,
+      });
+      Alert.alert('Producto agregado', 'Precio y cantidad guardados en el inventario.');
+      clearProductSelection();
+      setPrice('');
+      setStockQty('');
+      await refetchInventories();
+    } catch (err) {
+      Alert.alert('Error', err.message || 'No se pudo agregar al inventario');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateDraft = (item, field, value) => {
+    setDrafts((prev) => ({
+      ...prev,
+      [item.id]: { ...prev[item.id], [field]: value },
+    }));
+  };
+
+  const saveInventoryItem = async (item) => {
+    const draft = drafts[item.id] || {};
+    const priceValue = Number(draft.price);
+    const qtyValue = Number(draft.stockQty);
+
+    if (draft.price === undefined || draft.price === '' || Number.isNaN(priceValue) || priceValue < 0) {
+      Alert.alert('Precio inválido', 'Ingresa un precio válido (mayor o igual a 0).');
+      return;
+    }
+    if (draft.stockQty === undefined || draft.stockQty === '' || Number.isNaN(qtyValue) || qtyValue < 0) {
+      Alert.alert('Cantidad inválida', 'Ingresa una cantidad válida (mayor o igual a 0).');
+      return;
+    }
+
+    try {
+      await api.patch(ENDPOINTS.vendors.inventoryById(item.id), {
+        price: priceValue,
+        stockQty: qtyValue,
+      });
+      setInventories((prev) =>
+        prev.map((i) =>
+          i.id === item.id ? { ...i, price: priceValue, stockQty: qtyValue } : i
+        )
+      );
+      setDrafts((prev) => {
+        const next = { ...prev };
+        delete next[item.id];
+        return next;
+      });
+      Alert.alert('Inventario actualizado');
+    } catch (err) {
+      Alert.alert('Error', err.message || 'No se pudo actualizar el inventario');
+    }
+  };
 
   const updateOrderStatus = async (order, newStatus) => {
     try {
@@ -68,44 +284,10 @@ export default function CentroAcoqueScreen({ navigation }) {
         status: ORDER_STATUSES.CANCELLED,
       });
       setOrders((prev) =>
-        prev.map((o) => (o.id === order.id ? { ...o, status: 'cancelado' } : o))
+        prev.map((o) => (o.id === order.id ? { ...o, status: ORDER_STATUSES.CANCELLED } : o))
       );
     } catch (err) {
       Alert.alert('Error', err.message || 'No se pudo cancelar el pedido');
-    }
-  };
-
-  const updateStock = async (product, newQty) => {
-    try {
-      await api.patch(ENDPOINTS.catalog.productById(product.id), {
-        stockQty: newQty,
-        marketId,
-      });
-      setStock((prev) =>
-        prev.map((s) => (s.id === product.id ? { ...s, qty: newQty } : s))
-      );
-      Alert.alert('Stock actualizado', `Producto ${product.name}: ${newQty}`);
-    } catch (err) {
-      Alert.alert('Error', err.message || 'No se pudo actualizar el stock');
-    }
-  };
-
-  const addProduct = async () => {
-    const name = prompt('Nombre del producto');
-    if (!name) return;
-    const price = prompt('Precio');
-    if (!price) return;
-    try {
-      await api.post(ENDPOINTS.catalog.products, {
-        name,
-        price: Number(price),
-        marketId,
-        stockQty: 0,
-      });
-      Alert.alert('Producto agregado');
-      fetchData();
-    } catch (err) {
-      Alert.alert('Error', err.message || 'No se pudo agregar el producto');
     }
   };
 
@@ -127,8 +309,11 @@ export default function CentroAcoqueScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
       <View style={styles.header}>
+        <BackButton />
         <Text style={styles.title}>Centro de Acoque</Text>
-        <Text style={styles.subtitle}>Mercado: {marketId}</Text>
+        <Text style={styles.subtitle}>
+          Mercado: {user?.marketName || marketId || 'Sin mercado asignado'}
+        </Text>
         <TouchableOpacity style={styles.signout} onPress={logout}>
           <Text style={styles.signoutText}>Salir</Text>
         </TouchableOpacity>
@@ -166,15 +351,12 @@ export default function CentroAcoqueScreen({ navigation }) {
                   <Text style={styles.orderId}>Pedido #{item.id?.slice(0, 8) || 'N/A'}</Text>
                   <View style={styles.statusRow}>
                     <Text style={styles.statusLabel}>{statusLabel(item.status)}</Text>
-                    <Picker
+                    <OptionPicker
                       style={styles.picker}
-                      selectedValue={item.status}
+                      value={item.status}
+                      options={STATUS_OPTIONS}
                       onValueChange={(value) => updateOrderStatus(item, value)}
-                    >
-                      {STATUS_OPTIONS.map((s) => (
-                        <Picker.Item key={s.value} label={s.label} value={s.value} />
-                      ))}
-                    </Picker>
+                    />
                     <TouchableOpacity
                       style={styles.cancelBtn}
                       onPress={() => cancelOrder(item)}
@@ -190,45 +372,204 @@ export default function CentroAcoqueScreen({ navigation }) {
           )}
         </View>
       ) : (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Stock — Mercado {marketId}</Text>
-          {stock.length === 0 ? (
-            <EmptyState title="Sin productos" message="No hay productos en este mercado." />
-          ) : (
-            <FlatList
-              data={stock}
-              renderItem={({ item }) => (
-                <TouchableOpacity style={styles.card} key={item.id}>
-                  <View style={styles.productRow}>
-                    <View>
-                      <Text style={styles.productName}>{item.name}</Text>
-                      <Text style={styles.productPrice}>
-                        ${(item.price || 0).toFixed(2)}
-                      </Text>
-                    </View>
-                    <View style={styles.stockControls}>
-                      <Text style={styles.stockLabel}>Qty:</Text>
-                      <Picker
-                        style={styles.stockPicker}
-                        selectedValue={String(item.qty)}
-                        onValueChange={(value) => updateStock(item, Number(value))}
-                      >
-                        {[0, 1, 5, 10, 20, 50, 100].map((q) => (
-                          <Picker.Item key={q} label={String(q)} value={String(q)} />
-                        ))}
-                      </Picker>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              )}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.listContent}
-            />
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          onTouchEnd={collapsePickers}
+        >
+          {error && (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
           )}
-          <TouchableOpacity style={styles.addBtn} onPress={addProduct}>
-            <Text style={styles.addText}>+ Agregar producto</Text>
-          </TouchableOpacity>
-        </View>
+
+          <View style={styles.addForm}>
+            <Text style={styles.formTitle}>
+              Puesto: {selectedVendor?.name || 'Seleccionar puesto'}
+            </Text>
+            {marketVendors.length > 0 && (
+              <>
+                <TouchableOpacity
+                  style={styles.selectRow}
+                  onPress={() => setShowVendorPicker(!showVendorPicker)}
+                >
+                  <Text style={styles.selectLabel}>
+                    {selectedVendor?.name || 'Seleccionar puesto'}
+                  </Text>
+                </TouchableOpacity>
+                {showVendorPicker && (
+                  <View style={styles.pickerList}>
+                    {marketVendors.map((v) => (
+                      <TouchableOpacity
+                        key={v.id}
+                        style={[
+                          styles.pickerItem,
+                          selectedVendorId === v.id && styles.pickerItemSelected,
+                        ]}
+                        onPress={() => selectVendor(v)}
+                      >
+                        <Text style={styles.pickerItemText}>{v.name}</Text>
+                        {v.stallNumber ? (
+                          <Text style={styles.pickerItemMeta}>Puesto {v.stallNumber}</Text>
+                        ) : null}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
+
+            <TextInput
+              style={styles.input}
+              placeholder="Buscar producto del catálogo…"
+              value={productSearch}
+              onChangeText={(t) => {
+                setProductSearch(t);
+                setSelectedProduct(null);
+                setShowProductList(true);
+              }}
+              onFocus={() => setShowProductList(true)}
+              autoCapitalize="none"
+            />
+            {selectedProduct && (
+              <View style={styles.selectedChip}>
+                <Text style={styles.selectedChipText}>{selectedProduct.name}</Text>
+                <TouchableOpacity onPress={clearProductSelection}>
+                  <Text style={styles.selectedChipClear}>Quitar</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {showProductList && !selectedProduct && (
+              <View style={styles.pickerList}>
+                {filteredProducts.length === 0 ? (
+                  <Text style={styles.pickerEmpty}>Sin resultados</Text>
+                ) : (
+                  filteredProducts.map((p) => (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={styles.pickerItem}
+                      onPress={() => selectProduct(p)}
+                    >
+                      <Text style={styles.pickerItemText}>{p.name}</Text>
+                      {p.category?.name ? (
+                        <Text style={styles.pickerItemMeta}>{p.category.name}</Text>
+                      ) : null}
+                    </TouchableOpacity>
+                  ))
+                )}
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.selectRow}
+              onPress={() => setShowUnitPicker(!showUnitPicker)}
+            >
+              <Text style={styles.selectLabel}>
+                Unidad: {selectedUnit?.name || 'Seleccionar unidad'}
+              </Text>
+            </TouchableOpacity>
+            {showUnitPicker && (
+              <View style={styles.pickerList}>
+                {units.map((u) => (
+                  <TouchableOpacity
+                    key={u.id}
+                    style={[
+                      styles.pickerItem,
+                      selectedUnitId === u.id && styles.pickerItemSelected,
+                    ]}
+                    onPress={() => {
+                      setSelectedUnitId(u.id);
+                      setShowUnitPicker(false);
+                    }}
+                  >
+                    <Text style={styles.pickerItemText}>{u.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            <View style={styles.priceRow}>
+              <TextInput
+                style={styles.inputHalf}
+                placeholder="Precio"
+                value={price}
+                onChangeText={setPrice}
+                keyboardType="decimal-pad"
+              />
+              <TextInput
+                style={styles.inputHalf}
+                placeholder="Cantidad"
+                value={stockQty}
+                onChangeText={setStockQty}
+                keyboardType="decimal-pad"
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.addBtn, saving && styles.addBtnDisabled]}
+              onPress={addStockItem}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.addText}>+ Agregar al inventario</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Inventario del puesto</Text>
+            {inventories.length === 0 ? (
+              <EmptyState
+                title="Sin ítems de inventario"
+                message="Busca un producto del catálogo y agrégalo con precio y cantidad."
+                style={{ flex: 0 }}
+              />
+            ) : (
+              inventories.map((item) => (
+                <View style={styles.card} key={item.id}>
+                  <View style={styles.inventoryTop}>
+                    <Text style={styles.productName}>
+                      {item.product?.name || 'Producto'}
+                    </Text>
+                    <Text style={styles.productMeta}>
+                      ${Number(item.price || 0).toFixed(2)}
+                      {item.unitOfMeasure?.name ? ` · ${item.unitOfMeasure.name}` : ''}
+                    </Text>
+                  </View>
+                  <View style={styles.productMeta}>
+                    Cantidad: {Number(item.stockQty || 0).toFixed(3)}
+                  </View>
+                  <View style={styles.editControls}>
+                    <TextInput
+                      style={styles.qtyInput}
+                      placeholder={String(item.price ?? '')}
+                      value={drafts[item.id]?.price ?? ''}
+                      onChangeText={(v) => updateDraft(item, 'price', v)}
+                      keyboardType="decimal-pad"
+                    />
+                    <TextInput
+                      style={styles.qtyInput}
+                      placeholder={String(item.stockQty ?? 0)}
+                      value={drafts[item.id]?.stockQty ?? ''}
+                      onChangeText={(v) => updateDraft(item, 'stockQty', v)}
+                      keyboardType="decimal-pad"
+                    />
+                    <TouchableOpacity
+                      style={styles.saveBtn}
+                      onPress={() => saveInventoryItem(item)}
+                    >
+                      <Text style={styles.saveText}>Guardar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
       )}
     </SafeAreaView>
   );
@@ -238,6 +579,12 @@ const styles = makeStyles({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 40,
   },
   header: {
     padding: spacing.md,
@@ -341,49 +688,188 @@ const styles = makeStyles({
   },
   picker: {
     flex: 1,
-    color: colors.onBackground,
   },
   listContent: {
     paddingHorizontal: spacing.md,
     paddingBottom: 20,
   },
-  productRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  errorBanner: {
+    backgroundColor: '#FEE2E2',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+    padding: 12,
+    marginHorizontal: spacing.md,
+    marginBottom: 12,
   },
-  productName: {
+  errorText: {
+    ...text.body,
+    color: colors.error,
+    fontSize: 13,
+  },
+  addForm: {
+    paddingHorizontal: spacing.md,
+    gap: 10,
+    marginBottom: 16,
+  },
+  formTitle: {
     fontFamily: text.label.fontFamily,
     fontWeight: '600',
+    fontSize: 14,
+    color: colors.muted,
+  },
+  input: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: colors.onBackground,
+  },
+  inputHalf: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
     fontSize: 15,
     color: colors.onBackground,
   },
-  productPrice: {
-    ...text.bodyMuted,
-    fontSize: 13,
+  priceRow: {
+    flexDirection: 'row',
+    gap: 10,
   },
-  stockControls: {
+  selectRow: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  selectLabel: {
+    ...text.body,
+    fontSize: 16,
+    color: colors.onBackground,
+  },
+  pickerList: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    marginTop: 4,
+    maxHeight: 220,
+    overflow: 'hidden',
+  },
+  pickerItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  pickerItemSelected: {
+    backgroundColor: '#EFF6F2',
+  },
+  pickerItemText: {
+    ...text.body,
+    fontSize: 15,
+    color: colors.onBackground,
+  },
+  pickerItemMeta: {
+    ...text.bodyMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  pickerEmpty: {
+    ...text.bodyMuted,
+    fontSize: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  selectedChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    backgroundColor: '#EFF6F2',
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  stockLabel: {
-    fontSize: 13,
-    color: colors.muted,
-  },
-  stockPicker: {
-    width: 90,
+  selectedChipText: {
+    ...text.body,
+    fontSize: 14,
     color: colors.onBackground,
+    flex: 1,
+  },
+  selectedChipClear: {
+    ...text.body,
+    fontSize: 13,
+    color: colors.error,
+    marginLeft: 8,
   },
   addBtn: {
     backgroundColor: colors.success,
     borderRadius: radius.lg,
     paddingVertical: 12,
     alignItems: 'center',
-    marginTop: 12,
+  },
+  addBtnDisabled: {
+    opacity: 0.6,
   },
   addText: {
     ...text.button,
     color: '#FFFFFF',
+  },
+  inventoryTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 10,
+  },
+  productName: {
+    fontFamily: text.label.fontFamily,
+    fontWeight: '600',
+    fontSize: 15,
+    color: colors.onBackground,
+    flex: 1,
+  },
+  productMeta: {
+    ...text.bodyMuted,
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  editControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  qtyInput: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: colors.onBackground,
+  },
+  saveBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  saveText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  bottomSpacer: {
+    height: 24,
   },
 });
